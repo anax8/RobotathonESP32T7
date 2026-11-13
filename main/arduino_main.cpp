@@ -16,6 +16,7 @@
 #include <Wire.h>
 #include <Arduino_APDS9960.h>
 #include <bits/stdc++.h>
+#include <math.h>
 
 #define APDS9960_INT 0
 #define I2C_SDA 21
@@ -33,6 +34,8 @@ const char* start_color = "no";
 #define IN3 19 // motor 2
 #define IN4 18
 #define IN5 15 // servo
+
+int z = 0;
 
 TwoWire I2C_0 = TwoWire(0);
 APDS9960 apds = APDS9960(I2C_0, APDS9960_INT);
@@ -107,210 +110,318 @@ void loop() {
     BP32.update(); 
     for (auto myController : myControllers) { // Only execute code when controller is connected
         if (myController && myController->isConnected() && myController->hasData()) {        
+
+    //for mode by controller buttons
+    if (myController->y()) {
+        mode = "autonomous-color";
+        Console.printf("Switched to color\n");
+        input_color = "blank";
+        start_color = "yes";
+        int z = 0;
+    }
+    else if (myController->x()) {
+        mode = "autonomous-line";
+        Console.printf("Switched to line\n");
+        start_color = "no";
+    }
+    else if (myController->a()) {
+        mode = "teleop";
+        Console.printf("Switched to teleop\n");
+        start_color = "no";
+    }
+    else if (myController->b()) {
+        mode = "test color";
+        Console.printf("Switched to test color\n");
+        start_color = "no";
+    }
+
+
+    if(strcmp(mode, "teleop") == 0) {
+                
+                Console.printf("Teleop mode\n");
+
+                // test for consol control motors if work above
+                int joy = myController->axisY();
+                int sad = myController->axisX();
+                if (joy<0) {
+                    // digitalWrite(IN1, 255);
+                    // digitalWrite(IN2, 0);    // forward
+                    // digitalWrite(IN3, 255);
+                    // digitalWrite(IN4, 0); 
+                    // Console.printf("Forward\n");
+                    analogWrite(IN1, 255);
+                    analogWrite(IN2, 0);
+                    analogWrite(IN3, 255);
+                    analogWrite(IN4, 0);
+                    // delay(1000);
+                } else if (joy>0) {
+                    // digitalWrite(IN1, LOW);
+                    // digitalWrite(IN2, HIGH);   // reverse
+                    // digitalWrite(IN3, LOW);
+                    // digitalWrite(IN4, HIGH);
+                    // Console.printf("Reverse\n");
+                    analogWrite(IN1, 0);
+                    analogWrite(IN2, 255);
+                    analogWrite(IN3, 0);
+                    analogWrite(IN4, 255);
+                    // delay(1000);
+                } else if (sad > 0) {
+                        // digitalWrite(IN1, HIGH);
+                        // digitalWrite(IN2, LOW);   // right
+                        // digitalWrite(IN3, LOW);
+                        // digitalWrite(IN4, LOW);
+                    // Console.printf("Right\n");
+                    analogWrite(IN1, 255);
+                    analogWrite(IN2, 0);
+                    analogWrite(IN3, 0);
+                    analogWrite(IN4, 255);
+                    // delay(1000);
+                } else if (sad < 0) {
+                    // digitalWrite(IN1, LOW);
+                    // digitalWrite(IN2, LOW);   // left
+                    // digitalWrite(IN3, HIGH);
+                    // digitalWrite(IN4, LOW);
+                    // Console.printf("Left\n");
+                    analogWrite(IN1, 0);
+                    analogWrite(IN2, 255);
+                    analogWrite(IN3, 255);
+                    analogWrite(IN4, 0);
+                    // delay(1000);            
+                } else {
+                    // digitalWrite(IN1, LOW);
+                    // digitalWrite(IN2, LOW);    // stop
+                    // digitalWrite(IN3, LOW);
+                    // digitalWrite(IN4, LOW);
+                    // Console.printf("Stop\n");
+                    analogWrite(IN1, 0);
+                    analogWrite(IN2, 0);
+                    analogWrite(IN3, 0);
+                    analogWrite(IN4, 0);
+                    // delay(1000);
+                }
+
+                int stick = myController->axisRY();
+                if (stick<-10) {
+                    servo.write(6000);
+                    // Console.printf("servo forward\n");
+                    // delay(1000);
+                } else if (stick>10) {
+                    servo.write(0); 
+                    // Console.printf("servo reverse\n");
+                    // delay(1000);
+                } else {
+                    servo.write(1500);               
+                    // Console.printf("servo stopped\n");
+                    // delay(1000);
+                }        
+    }
+
+    // else if (strcmp(start_color, "yes") == 0) {
+    //     Console.printf("Starting color detection\n");
+
+    //     if (apds.colorAvailable()) {
+    //         apds.readColor(r, g, b, a);
+    //         Console.printf("RED: %d GREEN: %d BLUE: %d AMBIENT: %d\n", r, g, b, a);
+
+    //         if (r > g && r > b) {
+    //             Console.printf("starting red\n");
+    //             input_color = "red";
+
+    //         } else if (r > b && b > g) {
+    //             Console.printf("starting orange\n");
+    //             input_color = "orange";
+
+    //         } else if (b > r && b > g) {
+    //             Console.printf("starting blue\n");
+    //             input_color = "blue";
+
+    //         } else {
+    //             Console.printf("starting unknown\n");
+    //             input_color = "white";
+    //         }
+
+    //         start_color = "no";
+    //     }
+    // }
+
+    else if (strcmp(mode, "autonomous-color") == 0) {
+
+        // if (apds.colorAvailable()) {
+        int r, g, b, a;
+
+        //     if (apds.readColor(r, g, b, a)) {
+        //         Console.printf(
+        //             "RED: %d GREEN: %d BLUE: %d AMBIENT: %d\n",
+        //             r, g, b, a
+        //         );
+        //     } else {
+        //         Console.printf("Color read failed\n");
+        //     }
+        // }
+
+        // Console.printf("Autonomous color mode\n");
+        // apds.readColor(r, g, b, a);
+        // Console.printf("RED: %d GREEN: %d BLUE: %d AMBIENT: %d\n", r, g, b, a);
         
-int r, g, b, a;
+        while (strcmp(start_color, "yes") == 0) {
+            Console.printf("Starting color detection\n");
+            // while (!apds.colorAvailable()) { delay(5); } // Wait until color is read from the sensor 
+            if (apds.colorAvailable()) {
+            apds.readColor(r, g, b, a);
+            Console.printf("RED: %d GREEN: %d BLUE: %d AMBIENT: %d\n", r, g, b, a);}
+                if (r > 20 && g<25) {
+                    Console.printf("starting red\n");
+                    input_color = "red";
+                } else if (r>70){
+                    Console.printf("starting white\n");
+                    input_color = "white";
+                }else if (r>45 && g>20) {
+                    Console.printf("starting orange\n");
+                    input_color = "orange";
+                } else if (r<20) {
+                    Console.printf("starting blue\n");
+                    input_color = "blue";
+                }else {Console.printf("screw you sensor\n");};
 
-//for mode by controller buttons
-if (myController->y()) {
-    mode = "autonomous-color";
-    Console.printf("Switched to color\n");
-    input_color = "blank";
-    start_color = "yes";
-}
-else if (myController->x()) {
-    mode = "autonomous-line";
-    Console.printf("Switched to line\n");
-    start_color = "no";
-}
-else if (myController->a()) {
-    mode = "teleop";
-    Console.printf("Switched to teleop\n");
-    start_color = "no";
-}
-
-
-if(strcmp(mode, "teleop") == 0) {
+            start_color = "no";
             
-            Console.printf("Teleop mode\n");
-
-            // test for consol control motors if work above
-            int joy = myController->axisY();
-            int sad = myController->axisX();
-            if (joy<0) {
-                // digitalWrite(IN1, 255);
-                // digitalWrite(IN2, 0);    // forward
-                // digitalWrite(IN3, 255);
-                // digitalWrite(IN4, 0); 
-                // Console.printf("Forward\n");
-                analogWrite(IN1, 0);
-                analogWrite(IN2, 255);
-                analogWrite(IN3, 0);
-                analogWrite(IN4, 255);
-                // delay(1000);
-            } else if (joy>0) {
-                // digitalWrite(IN1, LOW);
-                // digitalWrite(IN2, HIGH);   // reverse
-                // digitalWrite(IN3, LOW);
-                // digitalWrite(IN4, HIGH);
-                // Console.printf("Reverse\n");
+            int x = 0;
+            while (x < 20) {
+                // Move forward a bit
                 analogWrite(IN1, 255);
                 analogWrite(IN2, 0);
                 analogWrite(IN3, 255);
                 analogWrite(IN4, 0);
-                // delay(1000);
-            } else if (sad > 0) {
-                    // digitalWrite(IN1, HIGH);
-                    // digitalWrite(IN2, LOW);   // right
-                    // digitalWrite(IN3, LOW);
-                    // digitalWrite(IN4, LOW);
-                // Console.printf("Right\n");
-                analogWrite(IN1, 0);
-                analogWrite(IN2, 255);
-                analogWrite(IN3, 0);
-                analogWrite(IN4, 10);
-                // delay(1000);
-            } else if (sad < 0) {
-                // digitalWrite(IN1, LOW);
-                // digitalWrite(IN2, LOW);   // left
-                // digitalWrite(IN3, HIGH);
-                // digitalWrite(IN4, LOW);
-                // Console.printf("Left\n");
-                analogWrite(IN1, 0);
-                analogWrite(IN2, 10);
-                analogWrite(IN3, 0);
-                analogWrite(IN4, 255);
-                // delay(1000);            
-            } else {
-                // digitalWrite(IN1, LOW);
-                // digitalWrite(IN2, LOW);    // stop
-                // digitalWrite(IN3, LOW);
-                // digitalWrite(IN4, LOW);
-                // Console.printf("Stop\n");
-                analogWrite(IN1, 0);
-                analogWrite(IN2, 0);
-                analogWrite(IN3, 0);
-                analogWrite(IN4, 0);
-                // delay(1000);
+                delay (100);
+                x++;
             }
+            // go forward first a bit
 
-            int stick = myController->axisRY();
-            if (stick<-10) {
-                servo.write(6000);
-                // Console.printf("servo forward\n");
-                // delay(1000);
-            } else if (stick>10) {
-                servo.write(0); 
-                // Console.printf("servo reverse\n");
-                // delay(1000);
-            } else {
-                servo.write(1500);               
-                // Console.printf("servo stopped\n");
-                // delay(1000);
-            }        
-}
+        }
 
-else if (strcmp(mode, "autonomous-color") == 0) {
-
-    Console.printf("Autonomous color mode\n");
-
-    while (strcmp(start_color, "yes") == 0) {
-        Console.printf("Starting color detection\n");
-        // while (!apds.colorAvailable()) { delay(5); } // Wait until color is read from the sensor 
+        if (apds.colorAvailable()) {
         apds.readColor(r, g, b, a);
-        // Console.printf("RED: %d GREEN: %d BLUE: %d AMBIENT: %d\n", r, g, b, a);
-            if (r > g and r > b) {
+        Console.printf("RED: %d GREEN: %d BLUE: %d AMBIENT: %d\n", r, g, b, a);}
+            if (r >20 && g <25) {
                 Console.printf("starting red\n");
-                input_color = "red";
-                
-            } else if (g > r and g > b) {
-                Console.printf("starting green\n");
-                input_color = "green";
-            } else if (b > r and b > g) {
-                Console.printf("starting blue\n");
-                input_color = "blue";
-            } else {
+                current_color = "red";
+            } else if (r>70){
                 Console.printf("starting white\n");
-                input_color = "white";
-            }
-
-        start_color = "no";
-
-        //go forward first a bit
+                current_color = "blank";
+            } else if (r>45 && g>20) {
+                Console.printf("starting orange\n");
+                current_color = "orange";
+            } else if (r<20) {
+                Console.printf("starting blue\n");
+                current_color = "blue";
+            }else {
+            Console.printf("screw you sensor\n");
+        }
+        
+        Console.printf("Input color: %s Current color: %s\n", input_color, current_color);
+        if (strcmp(input_color, current_color) == 0) {
+            Console.printf("Colors match\n");
+            Serial.println("Stop");
+            if (z < 8) {
+                // Move forward a bit
+                analogWrite(IN1, 255);
+                analogWrite(IN2, 0);
+                analogWrite(IN3, 255);
+                analogWrite(IN4, 0);
+                delay(10);
+                z++;}
+            analogWrite(IN1, 0);
+            analogWrite(IN2, 0);
+            analogWrite(IN3, 0);
+            analogWrite(IN4, 0);
+        } else {
+            Console.printf("Colors do not match\n");
+            Serial.println("Straight Ahead");  
+            analogWrite(IN1, 255);
+            analogWrite(IN2, 0);
+            analogWrite(IN3, 255);
+            analogWrite(IN4, 0);
+        }
 
     }
 
-    while (!apds.colorAvailable()) { delay(5); } // Wait until color is read from the sensor 
+    else if (strcmp(mode, "test color") == 0) {
+
+        // if (apds.colorAvailable()) 
+        int r, g, b, a;
+
+            if (apds.colorAvailable()) {
             apds.readColor(r, g, b, a);
-            //Console.printf("RED: %d GREEN: %d BLUE: %d AMBIENT: %d\n", r, g, b, a);
-            if (r > g and r > b) {
-                Console.printf("current red\n");
-                current_color = "red";
-            } else if (g > r and g > b) {
-                Console.printf("current green\n");
-                current_color = "green";
-            } else if (b > r and b > g) {
-                Console.printf("current blue\n");
-                current_color = "blue";
+            Console.printf("RED: %d GREEN: %d BLUE: %d AMBIENT: %d\n", r, g, b, a);}
+                if (r > 20 && g<25) {
+                    Console.printf("testing red\n");
+                } else if (r>70){
+                    Console.printf("testing white\n");
+                }else if (r>45 && g>20) {
+                    Console.printf("testing orange\n");
+                } else if (r<20) {
+                    Console.printf("testing blue\n");
+                }else {Console.printf("screw you sensor\n");
+                }
             }
-    
-    Console.printf("Input color: %s Current color: %s\n", input_color, current_color);
-    // if (strcmp(input_color, current_color) == 0) {
-    //     Console.printf("Colors match\n");
-    //     Serial.println("Stop");
-    //     analogWrite(IN1, 0);
-    //     analogWrite(IN2, 0);
-    //     analogWrite(IN3, 0);
-    //     analogWrite(IN4, 0);
-    // } else {
-    //     Console.printf("Colors do not match\n");
-    //     Serial.println("Straight Ahead");  
-    //     analogWrite(IN1, 255);
-    //     analogWrite(IN2, 0);
-    //     analogWrite(IN3, 255);
-    //     analogWrite(IN4, 0);
-    // }
 
-}
+    else if (strcmp(mode, "autonomous-line") == 0) {
 
-else if (strcmp(mode, "autonomous-line") == 0) {
+        Console.printf("Autonomous line mode\n");
 
-    Console.printf("Autonomous line mode\n");
+                qtr.readLineBlack(sensors); // Get calibrated sensor values returned into sensors[]
+                Console.printf("S1: %d S2: %d S3: %d S4: %d\n", sensors[0], sensors[1], sensors[2], sensors[3]);
+                delay(100);
 
-            qtr.readLineBlack(sensors); // Get calibrated sensor values returned into sensors[]
-            Console.printf("S1: %d S2: %d S3: %d S4: %d\n", sensors[0], sensors[1], sensors[2], sensors[3]);
-            delay(100);
+                // Serial.println(sensor1.getDistanceFloat());
 
-            // Serial.println(sensor1.getDistanceFloat());
+                // uint16_t sensors[4];
+                // int16_t position = qtr.readLineBlack(sensors);
+                // int16_t error = position - 1000;
+                // if (error < 0)
+                // {
+                //     Serial.println("On the left");
+                // }
+                // if (error > 0)
+                // {
+                //     Serial.println("On the right");
+                // }
+                if(sensors[0] != 1000){ // highly dependent on the calibration which has some issues, idk
+                    Serial.println("Straight Ahead");  
+                    analogWrite(IN1, 0);
+                    analogWrite(IN2, 255);
+                    analogWrite(IN3, 0);
+                    analogWrite(IN4, 255);
+                }
+                else {
+                    Serial.println("Stop");
+                    analogWrite(IN1, 0);
+                    analogWrite(IN2, 0);
+                    analogWrite(IN3, 0);
+                    analogWrite(IN4, 0);
+                    delay(100); // do next step of rotating instead of relooping
+                    if(sensors[0] == 1000) {
+                        analogWrite(IN1, 0); // ccw rotate
+                        analogWrite(IN2, 255);
+                        analogWrite(IN3, 255);
+                        analogWrite(IN4, 0);
+                        // qtr.readLineBlack(sensors);
+                    }
+                    else if (sensors[0] != 1000){ // highly dependent on the calibration which has some issues, idk
+                            Serial.println("Straight Ahead");  
+                            analogWrite(IN1, 0);
+                            analogWrite(IN2, 0);
+                            analogWrite(IN3, 0);
+                            analogWrite(IN4, 0);
+                        }
+                    }
+                        
 
-            // uint16_t sensors[4];
-            // int16_t position = qtr.readLineBlack(sensors);
-            // int16_t error = position - 1000;
-            // if (error < 0)
-            // {
-            //     Serial.println("On the left");
-            // }
-            // if (error > 0)
-            // {
-            //     Serial.println("On the right");
-            // }
-            if(sensors[0] < 600 && sensors[3] > 900){ // highly dependent on the calibration which has some issues, idk
-                Serial.println("Straight Ahead");  
-                analogWrite(IN1, 0);
-                analogWrite(IN2, 255);
-                analogWrite(IN3, 0);
-                analogWrite(IN4, 255);
+                }
+                // vTaskDelay(1);
+                // delay(100);
+
+                // dumpGamepad(myController); // Prints the gamepad state, delete or comment if don't need
+
             }
-            else {
-                Serial.println("Stop");
-                analogWrite(IN1, 0);
-                analogWrite(IN2, 0);
-                analogWrite(IN3, 0);
-                analogWrite(IN4, 0);
-            }
-            // vTaskDelay(1);
-            // delay(100);
-
-            // dumpGamepad(myController); // Prints the gamepad state, delete or comment if don't need
-
-        }
-    }}}
+        }}
